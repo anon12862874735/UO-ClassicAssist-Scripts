@@ -1,36 +1,42 @@
 '''Mega Miner by Magickal'''
 '''Version 1.0'''
 
+import clr
+import System
+clr.AddReference("System.Core")
+clr.ImportExtensions(System.Linq)
+from Assistant import Engine
+
 '''Setup the variables below according to your own miner.'''
 
 '''Dropoff/Forge runebook.  First 3 runes should be dropoff/forge/ankh in that order.'''
-'''You may only need two runes because your dropoff might have a forge, but if so then'''
-'''fill the middle spot with a junk rune if you still need to use the ankh.'''
+'''If you do not need the ankh or forge because your dropoff has a forge, just place'''
+'''the dropoff point in rune slot 1.'''
 '''The ankh is only used for tithing if you do not have 100% LRC and are using Sacred'''
-'''Journey to recall'''
-dropoffRB = _DROPOFFRB
+'''Journey to recall:'''
+dropoffRB = 0x429818e7
 
 '''The container to drop the ingots/gems into, and where to grab reagents from if you don't have LRC:'''
-dropoffContainer = _DROPOFFCONTAINER
+dropoffContainer = 0x400e9ace
 
 '''Does the dropoff rune have a forge?  If so, set this to True to avoid extra recalls:'''
 dropoffHasForge = True
 
 '''Forge to smelt ore:'''
-forge = _FORGE
+forge = 0x400faf44
 
 '''List of runebooks to be used.  It is recommended to use 4 or more.'''
 '''The script expects each runebook to be filled with 16 mining runes:'''
-runebooks = [_RUNEBOOK1, _RUNEBOOK2, _RUNEBOOK3, _RUNEBOOK4]
+runebooks = [0x45fc6ec6, 0x4071f0ec, 0x4071f14a, 0x4071f0bd]
 
 '''Name of spell to use for recalling ("Recall", "Sacred Journey", or "Gate Travel" are your only options):'''
 recallSpell = "Sacred Journey"
 
 '''Time in milliseconds to wait after casting your recall spell of choice before returning to mining:'''
-recallWaitTime = 2000
+recallWaitTime = 1000
 
 '''Time in milliseconds to wait after casting a spell:'''
-castRecoveryDelay = _CASTRECOVERYDELAY
+castRecoveryDelay = 0
 
 '''If you have a 100% LRC suit, set this to True, otherwise set it to False:'''
 hasLRC = True
@@ -56,31 +62,40 @@ titheGoldMin = 60000
 '''XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'''
 
 '''List of gump IDs to be used for Recall:'''
-'''TODO: implement'''
 gumpIDRecall = [
-    1, 2, 3, 4,
-    5, 6, 7, 8,
-    9, 10, 11, 12,
-    13, 14, 15, 16
+    5, 11, 17, 23,
+    29, 35, 41, 47,
+    53, 59, 65, 71,
+    77, 83, 89, 95
 ]
 
 '''List of gump IDs to be used for Sacred Journey:'''
-'''DOUBLE-CHECK THIS BEFORE RUNNING!'''
 gumpIDSacred = [
-    13, 19, 25, 31,
-    37, 43, 49, 55,
-    61, 67, 73, 79,
-    85, 91, 97, 103
+    7, 13, 19, 25,
+    31, 37, 43, 49,
+    55, 61, 67, 73,
+    79, 85, 91, 97
 ]
 
 '''List of gump IDs to be used for Gate Travel:'''
-'''TODO: implement'''
+'''TODO: check if this works'''
 gumpIDGate = [
-    1, 2, 3, 4,
-    5, 6, 7, 8,
-    9, 10, 11, 12,
-    13, 14, 15, 16
+    6, 12, 18, 24,
+    30, 36, 42, 48,
+    54, 60, 66, 72,
+    78, 84, 90, 96
 ]
+
+'''List of gemstones:'''
+if not ListExists("gemstones"):
+    CreateList("gemstones")
+    PushList("gemstones", 0x3192)
+    PushList("gemstones", 0x3193)
+    PushList("gemstones", 0x3194)
+    PushList("gemstones", 0x3195)
+    PushList("gemstones", 0x3196)
+    PushList("gemstones", 0x3197)
+    PushList("gemstones", 0x3198)
 
 '''Current index to recall to:'''
 recallIndex = 0
@@ -90,47 +105,52 @@ runebookIndex = 0
 
 '''Gets the next rune/runebook to use:'''
 def GetNextIndex():
+    global recallIndex, runebookIndex
     if recallIndex >= 15:
         recallIndex = 0
+        runebookIndex += 1
         if runebookIndex > len(runebooks) - 1:
             runebookIndex = 0
-        else:
-            runebookIndex += 1
     else:
         recallIndex += 1
 
 '''Dispels any moongate found on top of the player, if casting gate fails.'''
 '''This way, nobody can gate your miner away:'''
 def DispelMoongate(gate):
+    SysMessage("~Dispelling moongate~")
     Cast("Dispel Field")
     WaitForTargetOrFizzle(2500)
     Target(gate)
-    Pause(_CASTRECOVERYDELAY)
+    Pause(castRecoveryDelay)
 
 '''Recalls to the next mining spot:'''
 def RecallNext(next):
+    SysMessage("~Recalling to next point~")
     ClearJournal()
     if next == True:
         GetNextIndex()
+    SysMessage("    Runebook : " + str(format(hex(runebooks[runebookIndex]))))
+    SysMessage("    Book Number : " + str(runebookIndex + 1))
+    SysMessage("    Index : " + str(recallIndex + 1))
     UseObject(runebooks[runebookIndex])
-    WaitForGump(_RUNEBOOKGUMP, 3000)
+    WaitForGump(0x554b87f3, 3000)
     if recallSpell == "Recall":
-        ReplyGump(_RUNEBOOKGUMP, gumpIDRecall[i])
+        ReplyGump(0x554b87f3, gumpIDRecall[recallIndex])
     elif recallSpell == "Sacred Journey":
-        ReplyGump(_RUNEBOOKGUMP, gumpIDSacred[i])
+        ReplyGump(0x554b87f3, gumpIDSacred[recallIndex])
     elif recallSpell == "Gate Travel":
-        ReplyGump(_RUNEBOOKGUMP, gumpIDGate[i])
+        ReplyGump(0x554b87f3, gumpIDGate[recallIndex])
     Pause(recallWaitTime)
     if recallSpell == "Gate Travel":
         if InJournal("There is already a gate there"):
-            while FindType(_BLUEMOONGATEID, 0, "Ground") or FindType(_REDMOONGATEID, 0, "Ground"):
+            while FindType(0xf6c, 0, "Ground") or FindType(0xdda, 0, "Ground"):
                 DispelMoongate("Found")
             RecallNext(False)
-        elif FindType(_BLUEMOONGATEID, 0, "Ground") or FindType(_REDMOONGATEID, 0, "Ground"):
+        elif FindType(0xf6c, 0, "Ground") or FindType(0xdda, 0, "Ground"):
             Pause(900)
             UseItem("Found")
-            WaitForGump(_MOONGATEGUMPID, 5000)
-            ReplyGump(_MOONGATEGUMPID, _MOONGATEGUMPACCEPTBUTTON)
+            WaitForGump(0xdd8b146a, 5000)
+            ReplyGump(0xdd8b146a, 1)
     if InJournal("location is blocked") or InJournal("already there"):
         RecallNext(True)
     elif InJournal(" mana for this spell"):
@@ -145,43 +165,47 @@ class Location:
 '''Recalls to dropoff/forge/ankh:'''
 def RecallToDropoffOrAnkh(location):
     ClearJournal()
-    UseObject(_DROPOFFRB)
-    WaitForGump(_RUNEBOOKGUMP, 3000)
+    UseObject(0x429818e7)
+    WaitForGump(0x554b87f3, 3000)
     gumpButton = 0
     '''True if you're going to tithe gold, false if you're going to drop off resources:'''
     if location == Location.Ankh:
         if recallSpell == "Recall":
-            gumpButton = _RECALLANKHBUTTON
+            gumpButton = 17
         elif recallSpell == "Sacred Journey":
-            gumpButton = _SACREDANKHBUTTON
+            gumpButton = 19
         elif recallSpell == "Gate Travel":
-            gumpButton = _GATEANKHBUTTON
+            gumpButton = 18
+        SysMessage("Recalling to Ankh to tithe...")
     elif location == Location.Dropoff:
         if recallSpell == "Recall":
-            gumpButton = _RECALLDROPOFFBUTTON
+            gumpButton = 5
         elif recallSpell == "Sacred Journey":
-            gumpButton = _SACREDDROPOFFBUTTON
+            gumpButton = 7
         elif recallSpell == "Gate Travel":
-            gumpButton = _GATEDROPOFFBUTTON
+            gumpButton = 6
+        SysMessage("Recalling to Dropoff...")
     elif location == Location.Forge:
         if recallSpell == "Recall":
-            gumpButton = _RECALLFORGEBUTTON
+            gumpButton = 11
         elif recallSpell == "Sacred Journey":
-            gumpButton = _SACREDFORGEBUTTON
+            gumpButton = 13
         elif recallSpell == "Gate Travel":
-            gumpButton = _GATEFORGEBUTTON
-    ReplyGump(_RUNEBOOKGUMP, gumpButton)
+            gumpButton = 12
+        SysMessage("Recalling to Forge...")
+    '''SysMessage("    Gump Button : " + str(gumpButton))'''
+    ReplyGump(0x554b87f3, gumpButton)
     Pause(recallWaitTime)
     if recallSpell == "Gate Travel":
         if InJournal("There is already a gate there"):
-            while FindType(_BLUEMOONGATEID, 0, "Ground") or FindType(_REDMOONGATEID, 0, "Ground"):
+            while FindType(0xf6c, 0, "Ground") or FindType(0xdda, 0, "Ground"):
                 DispelMoongate("Found")
             RecallToDropoffOrAnkh(location)
-        elif FindType(_BLUEMOONGATEID, 0, "Ground") or FindType(_REDMOONGATEID, 0, "Ground"):
+        elif FindType(0xf6c, 0, "Ground") or FindType(0xdda, 0, "Ground"):
             Pause(900)
             UseItem("Found")
-            WaitForGump(_MOONGATEGUMPID, 3000)
-            ReplyGump(_MOONGATEGUMPID, _MOONGATEGUMPACCEPTBUTTON)
+            WaitForGump(0xdd8b146a, 3000)
+            ReplyGump(0xdd8b146a, 1)
     if InJournal("location is blocked"):
         RecallToDropoffOrAnkh(location)
     else:
@@ -191,24 +215,33 @@ def RecallToDropoffOrAnkh(location):
 
 '''Smelt all ore into ingots:'''
 def SmeltOre():
-    while FindType(_ORETYPE1, 0, "Backpack"):
-        UseType("Found")
+    SysMessage("Smelting...")
+    while FindType(0x19b9, -1, "Backpack"):
+        UseObject("found")
+        WaitForTarget(150)
+        '''Small forge:'''
+        Target(forge)
+    while FindType(0x19ba, -1, "Backpack"):
+        UseObject("found")
         WaitForTarget(150)
         Target(forge)
-    while FindType(_ORETYPE2, 0, "Backpack"):
-        UseType("Found")
+    while FindType(0x19b8, -1, "Backpack"):
+        UseObject("found")
         WaitForTarget(150)
         Target(forge)
-    while FindType(_ORETYPE3, 0, "Backpack"):
-        UseType("Found")
-        WaitForTarget(150)
-        Target(forge)
-    while FindType(_ORETYPE4, 0, "Backpack"):
-        UseType("Found")
-        WaitForTarget(150)
-        Target(forge)
+    while FindType(0x19b7, -1, "Backpack"):
+        MoveItem("found", dropoffContainer)
+    '''Small ores must be handled in this stupid way because there's no way to easily get the quantity of each stack:'''
+    '''
+    smallOres = Engine.Player.Backpack.Container.SelectEntities(lambda i: i.ID == 0x19b7)
+    for o in smallOres:
+        while o.Count > 1:
+            UseObject("found")
+            WaitForTarget(150)
+            Target(forge)
+    '''
     Pause(1000)
-    '''TODO: ensure that the tiny ores which require 2-stacks to smelt are dealt with properly'''
+    
 
 '''List of all tinker tools in backpack:'''
 if not ListExists("tinkerTools"):
@@ -216,65 +249,76 @@ if not ListExists("tinkerTools"):
 ClearList("tinkerTools")
 
 '''List of all shovels in backpack:'''
-if not ListExists("shovels"):
-    CreateList("shovels")
-ClearList("shovels")
+if not ListExists("pickaxes"):
+    CreateList("pickaxes")
+ClearList("pickaxes")
 
 '''Drops off smelted ingots, crafts Tinker Tools/Shovels as needed:'''
 def DropoffAndRestock():
-    while FindType(_INGOTS, 0, "Backpack"):
-        MoveItem("Found", _DROPOFFCONTAINER)
+    SysMessage("Dropping off...")
+    UseObject(dropoffContainer)
+    Pause(900)
+    while FindType(0x1bf2, -1, "Backpack"):
+        MoveItem("Found", dropoffContainer)
     for g in GetList("gemstones"):
-        while FindType(g, 0, "Backpack"):
-            MoveItem("Found", _DROPOFFCONTAINER)
-    while not FindType(_INGOTS, 0, "Backpack", 0) and FindType(_INGOTS, 2, _DROPOFFCONTAINER, 0):
-        MoveItem("Found", "BackPack", 200)
+        while FindType(g, -1, "Backpack"):
+            MoveItem("Found", dropoffContainer)
+    Pause(900)
+    while not FindType(0x1bf2, -1, "Backpack", 0):
+        MoveType(0x1bf2, dropoffContainer, "Backpack", 0, 0, 0, 0, 200)
+        Pause(900)
     ClearList("tinkerTools")
-    ClearList("shovels")
+    ClearList("pickaxes")
     ClearIgnoreList()
-    while FindType(_TINKERTOOL, 0, "Backpack"):
+    SysMessage("Crafting tools...")
+    while FindType(0x1eb8, -1, "Backpack"):
         PushList("tinkerTools", "Found")
         IgnoreObject("Found")
-    if List("tinkerTools") < 3:
-        UseType(_TINKERTOOL)
-        WaitForGump(_TINKERTOOLGUMP, 3000)
-        ReplyGump(_TINKERTOOLGUMO, _MAKETINKERTOOLGUMPBUTTON)
+    while List("tinkerTools") < 3:
+        UseType(0x1eb8)
+        WaitForGump(0x38920abd, 3000)
+        ReplyGump(0x38920abd, 23)
         Pause(900)
-    while FindType(_TINKERTOOL, 0, "Backpack"):
-        PushList("tinkerTools", "Found")
+        if FindType(0x1eb8, -1, "Backpack"):
+            PushList("tinkerTools", "Found")
+    while FindType(0xe86, -1, "Backpack"):
+        PushList("pickaxes", "Found")
         IgnoreObject("Found")
-    if List("shovels") < 5:
-        UseType(_TINKERTOOL)
-        WaitForGump(_TINKERTOOLGUMP, 3000)
-        ReplyGump(_TINKERTOOLGUMO, _MAKESHOVELGUMPBUTTON)
+    while List("pickaxes") < 5:
+        UseType(0x1eb8)
+        WaitForGump(0x38920abd, 3000)
+        ReplyGump(0x38920abd, 114)
         Pause(900)
-    '''TODO: Check reagents and tithing points, collect reagents from dropoff point and tithe gold!'''
+        if FindType(0xe86, -1, "Backpack"):
+            PushList("pickaxes", "Found")
+    ClearIgnoreList()
+    '''TODO: Check reagents and tithing points, collect reagents from dropoff point and tithe gold'''
 
 def MineOre():
-    if TargetExists():
-        TargetByResource('Shovel', 'Ore')
-    UseType(_SHOVEL)
-    WaitForTarget(150)
-    '''Haven't used this yet.  Will it work, and if so, how?'''
-    TargetByResource('Shovel', 'Ore')
-
+    if FindType(0xe86, 0, "Backpack"):
+        SetAlias('pickaxe', "Found")
+        TargetByResource('pickaxe', 'Ore')
 
 '''***** ~ MAIN LOOP ~ *****'''
 running = True
 
 while running == True:
-    RecallNext(True)
     ClearJournal()
-    while Weight() < dropoffWeight:
-        while not InJournal("There is no metal") or InJournal("Target cannot be seen") or InJournal("can't mine that"):
-            MineOre()
-    Pause(1000)
-    if dropoffHasForge == True:
-        RecallToDropoffOrAnkh(Location.Dropoff)
-    else:
-        RecallToDropoffOrAnkh(Location.Forge)
-    while Weight() >= dropoffWeight:
+    while Weight() < dropoffWeight and not InJournal("There is no metal") and not InJournal("Target cannot be seen") and not InJournal("can't mine"):
+        MineOre()
+    Pause(250)
+    if Weight() >= dropoffWeight:
+        if dropoffHasForge == True:
+            SysMessage("Recalling to dropoff/forge...")
+            RecallToDropoffOrAnkh(Location.Dropoff)
+        else:
+            SysMessage("Recalling to forge...")
+            RecallToDropoffOrAnkh(Location.Forge)
         SmeltOre()
         if dropoffHasForge == False:
+            SysMessage("Recalling to dropoff...")
             RecallToDropoffOrAnkh(Location.Dropoff)
         DropoffAndRestock()
+        RecallNext(False)
+    else:
+        RecallNext(True)
