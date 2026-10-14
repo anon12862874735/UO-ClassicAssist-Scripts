@@ -23,11 +23,17 @@ def DoResurrect(friend):
         Target(friend)
 
 def DoParalyzeBreak(friend):
+    if TargetExists('Beneficial'):
+        Target(friend)
     Cast("Feeblemind")
     WaitForTargetOrFizzle(500)
     Target(friend)
 
 def DoRemoveCurse(friend):
+    if TargetExists('Beneficial'):
+        Target(friend)
+    elif TargetExists('Harmful'):
+        CancelTarget()
     Cast("RemoveCurse")
     WaitForTargetOrFizzle(1800)
     Target(friend)
