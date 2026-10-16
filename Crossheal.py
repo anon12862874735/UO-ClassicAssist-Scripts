@@ -9,7 +9,7 @@
 
 
 '''Delay to pause after casting cure so you do not double-cure:'''
-cureDelay = 150
+cureDelay = 50
 
 '''Change this to true if you want your script to try to remove curse on a mortalled target:'''
 tryRemoveMortal = False
