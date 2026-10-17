@@ -15,11 +15,6 @@ cureDelay = 120
 '''Change this to true if you want your script to try to remove curse on a mortalled target:'''
 tryRemoveMortal = False
 
-'''List used to find loweat health friend to heal:'''
-if not ListExists("HealTargets"):
-    CreateList("HealTargets")
-ClearList("HealTargets")
-
 def DoResurrect(friend):
     if TargetExists('Beneficial'):
         Target(friend)
@@ -55,16 +50,6 @@ def DoHeal(friend):
             Cast("Heal")
             WaitForTargetOrFizzle(500)
             Target(friend)
-
-def FindLowestOld():
-    ClearList("HealTargets")
-    while GetFriend(["Any"], "Both", "Next", "Any", 10) and not InList("HealTargets", "Friend"):
-        PushList("HealTargets", "Friend")
-    lowest = "Friend"
-    for f in GetList("HealTargets"):
-        if Hits(f) < Hits(lowest):
-            lowest = f
-    return lowest
 
 def FindLowest():
     if GetFriend(["Any"], "Both", "Closest", "Lowest", 10):
