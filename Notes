@@ -1,0 +1,79 @@
+None of the built-in commands return the matched text — InJournal/WaitForJournal only return a bool (or the needle you passed, not the message). Let me check the Engine.Journal object for direct access.
+
+None of the built-in journal commands hand you the message text:
+
+Command	Returns
+InJournal(text, ...)	bool — just whether it matched
+WaitForJournal(text, ...)	bool — just whether it matched
+WaitForJournal([array], ...)	(index, text) — but text is the needle you passed in, not the journal message
+To get the actual string you read Engine.Journal directly. It's a CircularBuffer<JournalEntry> (capacity 1024), and each JournalEntry has:
+
+Text, Name, Serial, SpeechHue, SpeechType, SpeechFont,
+SpeechLanguage, Cliloc, Arguments, ID
+GetEntireBuffer() returns the whole thing as a JournalEntry[].
+
+Get the text of a message you're waiting for
+from Assistant import Engine
+
+def WaitForJournalEntry(needle, timeout = 3000, author = "", hue = -1):
+    '''Waits for needle, returns the JournalEntry.Text of the newest match, or None.'''
+    if not WaitForJournal(needle, timeout, author, hue):
+        return None
+
+    needle = needle.lower()
+    author = author.lower() if author else ""
+
+    entries = Engine.Journal.GetEntireBuffer()
+    # newest first, so we grab the one that just arrived
+    for i in xrange(len(entries) - 1, -1, -1):
+        je = entries[i]
+        if needle not in je.Text.lower():
+            continue
+        if author and (je.Name or "").lower() != author:
+            continue
+        if hue != -1 and je.SpeechHue != hue:
+            continue
+        return je.Text
+    return None
+Usage:
+
+msg = WaitForJournalEntry("You play a tune", 5000)
+if msg != None:
+    SysMessage("Got: " + msg)
+Parse without waiting — scan the buffer yourself
+def FindJournal(needle, author = "", hue = -1, newest = True):
+    needle = needle.lower()
+    author = author.lower() if author else ""
+
+    entries = Engine.Journal.GetEntireBuffer()
+    order = xrange(len(entries) - 1, -1, -1) if newest else xrange(len(entries))
+
+    matches = []
+    for i in order:
+        je = entries[i]
+        if needle not in je.Text.lower():
+            continue
+        if author and (je.Name or "").lower() != author:
+            continue
+        if hue != -1 and je.SpeechHue != hue:
+            continue
+        matches.append(je)
+
+    return matches          # list of JournalEntry, newest first
+Then parse the string with plain Python:
+
+hits = FindJournal("You create the item")
+if hits:
+    text = hits[0].Text
+    # e.g. "You create the item and put it in your backpack."
+    parts = text.split("and put it in your")
+    SysMessage("text length = " + str(len(text)))
+
+Things worth knowing
+ClearJournal() does not clear the array. It only advances the named read offset ("main" by default), which is what InJournal/FindAny search from. GetEntireBuffer() ignores offsets entirely and returns everything still in the ring buffer. So after a ClearJournal(), InJournal sees only new messages, but GetEntireBuffer() still returns the old ones too — filter by what you just waited for, or snapshot the array before waiting.
+Matching is substring + case-insensitive in the built-ins (je.Text.IndexOf(text, CurrentCultureIgnoreCase) >= 0). Mirror that with needle in je.Text.lower().
+Multiple named buffers: InJournal(..., buffer="mybuf") / ClearJournal("mybuf") maintain independent read offsets, so you can track several conversation threads at once. GetEntireBuffer() is shared across all of them though.
+Cliloc messages: for system messages, je.Cliloc and je.Arguments hold the cliloc ID and its args, and je.Text is the already-resolved text — so prefer je.Text for parsing.
+Author can be a serial/alias — the built-ins call ResolveSerial(author) then look up the entity's Name. If you filter yourself, resolve it first:
+from ClassicAssist.Data.Macros.Commands import AliasCommands
+name = Engine.Mobiles.GetMobile(AliasCommands.ResolveSerial("somealias")).Name
